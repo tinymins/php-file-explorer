@@ -235,7 +235,8 @@ class TmsFileManager{
 	 * @return void
 	 */
 	function echo_file($fullpath){
-		$filename	=substr($fullpath, strrpos($fullpath, '/'));
+		$slashpos 	=strrpos($fullpath, '/');
+		$filename	=substr($fullpath, ($slashpos===false?0:$slashpos+1));
 		$filesize	=filesize($fullpath);
 		$filemime	="";
 		# write header information
