@@ -244,6 +244,7 @@ class TmsFileManager{
 		$slashpos 	=strrpos($fullpath, '/');
 		$filename	=substr($fullpath, ($slashpos===false?0:$slashpos+1));
 		$filesize	=filesize($fullpath);
+		$filetime	=filectime($fullpath);
 		$filemime	="";
 		# write header information
 		$mimes = array(
@@ -361,6 +362,7 @@ class TmsFileManager{
 			'pmr'	=>'application/x-perfmon',
 			'pmw'	=>'application/x-perfmon',
 			'pnm'	=>'image/x-portable-anymap',
+			'png'	=>'image/png',
 			'pot,'	=>'application/vnd.ms-powerpoint',
 			'ppm'	=>'image/x-portable-pixmap',
 			'pps'	=>'application/vnd.ms-powerpoint',
@@ -452,6 +454,7 @@ class TmsFileManager{
 		ob_clean();
 		header("Content-Type: {$filemime}");
 		header("Content-Length: {$filesize}");
+		header("Last-Modified: " . gmdate("D, d M Y H:i:s",$filetime) . " GMT");
 		header("Content-Disposition: inline; filename=".iconv('gbk', 'utf-8', $filename.""));
 		$handle = fopen($fullpath, "rb");
 		while (!feof($handle)) {
