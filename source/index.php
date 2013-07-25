@@ -46,6 +46,7 @@ END;
 		$template = str_replace('{headline}', htmlspecialchars('TMS FILE EXPLORER - '.iconv('gbk','utf-8',$tfm->current_dir_relative)), $template);
 		$template = str_replace('{parent_href}', '?cd='.urlencode(substr($tfm->current_dir_relative,0,strrpos(substr($tfm->current_dir_relative,0,-1),'/'))), $template);
 		$body = '';
+		//if(is_dir($tfm->current_dir_fullpath)){
 		foreach($tfm->sub_dir_vitual as $filename=>$file){
 			$body .= sprintf(' %s %10s %10s <A HREF="?cd=%s">%s</A><br>',
 				date('Y/m/d h:i:s',$file['time']),
@@ -73,6 +74,9 @@ END;
 				iconv('gbk','utf-8',$file['name'])
 			);
 		}
+		//} else {
+		//	$body = '目录不存在！';
+		//}
 		$template = str_replace('{body}', $body, $template);
 		echo $template;
 		break;
@@ -87,6 +91,7 @@ class TmsFileManager{
 	var $sub_file = array();
 	
 	function __construct($current_dir_relative,$auto_load = true) {	#构造函数
+		if(substr($current_dir_relative,-1)!='/') $current_dir_relative.='/';
 		$current_dir_relative = str_replace('\\','/',$current_dir_relative);
 		$current_dir_relative = str_replace('../','',$current_dir_relative);
 		if(substr($current_dir_relative,-1)!='/') $current_dir_relative.='/';
