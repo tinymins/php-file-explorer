@@ -214,7 +214,13 @@ class TmsFileManager{
 			$tfm = new TmsFileManager($path,false);
 			$tfm->load_config_file($path.".conf");
 			if(!empty($tfm->sub_dir_vitual[$next_sub_dir])){
-				$path = $tfm->sub_dir_vitual[$next_sub_dir]['path'];
+				$real_path = $tfm->sub_dir_vitual[$next_sub_dir]['path'];
+				if(substr($real_path, 1,1)==':') {
+					$path = $real_path;
+				}else {
+					if(substr($real_path,0,1)=='/') $real_path = substr($real_path, 1);
+					$path = realpath($path.$real_path).'/';
+				}
 			}
 			else
 				$path .= $next_sub_dir . '/';
