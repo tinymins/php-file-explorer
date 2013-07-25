@@ -2,7 +2,7 @@
 /**
  * @name: TmsFileManager
  * @author: tinymins@gmail.com
- * @version: 2013-07-25 v0.1.2
+ * @version: 2013-07-25 v0.1.3
  * @link: Http://WwW.ZhaiYiMing.CoM
  */
 set_time_limit(0);
@@ -443,7 +443,7 @@ class TmsFileManager{
 
 		# start sending file
 		ob_clean();header("content-type:$filemime");
-		header("Content-Disposition:attachment;filename=$filename");
+		header("Content-Disposition:inline;filename=$filename");
 		header("Content-Length:$filesize");
 		$handle = fopen($fullpath, "rb");
 		while (!feof($handle)) {
