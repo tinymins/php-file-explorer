@@ -221,6 +221,7 @@ class TmsFileManager{
 					if(substr($real_path,0,1)=='/') $real_path = substr($real_path, 1);
 					$path = realpath($path.$real_path).'/';
 				}
+				if(substr($path, -1)!='/') $path.='/';
 			}
 			else
 				$path .= $next_sub_dir . '/';
@@ -443,9 +444,10 @@ class TmsFileManager{
 			$filemime='application/octet-stream';
 
 		# start sending file
-		ob_clean();header("content-type:$filemime");
-		header("Content-Disposition:inline;filename=$filename");
-		header("Content-Length:$filesize");
+		ob_clean();
+		header("Content-Type: {$filemime}");
+		header("Content-Length: {$filesize}");
+		header("Content-Disposition: inline; filename=".iconv('gbk', 'utf-8', $filename.""));
 		$handle = fopen($fullpath, "rb");
 		while (!feof($handle)) {
 			echo fread($handle, 8192);
