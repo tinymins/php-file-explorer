@@ -180,7 +180,7 @@ class TmsFileManager{
 			} elseif(is_file($file_location)) { #判断是不是文件
 				$this->sub_file []= array(
 					'name'=>$filename,
-					'size'=>filesize($file_location),
+					'size'=>sprintf("%u", filesize($file_location)),
 					'time'=>filemtime($file_location),
 					'type'=>filetype($file_location),
 				);
@@ -243,7 +243,7 @@ class TmsFileManager{
 	function echo_file($fullpath){
 		$slashpos 	=strrpos($fullpath, '/');
 		$filename	=substr($fullpath, ($slashpos===false?0:$slashpos+1));
-		$filesize	=filesize($fullpath);
+		$filesize	=sprintf("%u", filesize($fullpath));
 		$filetime	=filectime($fullpath);
 		$filemime	="";
 		# write header information
@@ -431,6 +431,7 @@ class TmsFileManager{
 			'xls'	=>'application/vnd.ms-excel',
 			'xlt'	=>'application/vnd.ms-excel',
 			'xlw'	=>'application/vnd.ms-excel',
+			'xml'	=>'text/xml',
 			'xof'	=>'x-world/x-vrml',
 			'xpm'	=>'image/x-xpixmap',
 			'xwd'	=>'image/x-xwindowdump',
@@ -453,7 +454,7 @@ class TmsFileManager{
 		# start sending file
 		ob_clean();
 		header("Content-Type: {$filemime}");
-		header("Content-Length: {$filesize}");
+		if($filesize>0) header("Content-Length: {$filesize}");
 		header("Last-Modified: " . gmdate("D, d M Y H:i:s",$filetime) . " GMT");
 		header("Content-Disposition: inline; filename=".iconv('gbk', 'utf-8', $filename.""));
 		$handle = fopen($fullpath, "rb");
