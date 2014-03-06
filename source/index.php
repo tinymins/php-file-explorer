@@ -180,7 +180,7 @@ class TmsFileManager{
 			} elseif(is_file($file_location)) { #判断是不是文件
 				$this->sub_file []= array(
 					'name'=>$filename,
-					'size'=>sprintf("%u", filesize($file_location)),
+					'size'=>filesize64($file_location),
 					'time'=>filemtime($file_location),
 					'type'=>filetype($file_location),
 				);
@@ -243,7 +243,7 @@ class TmsFileManager{
 	function echo_file($fullpath){
 		$slashpos 	=strrpos($fullpath, '/');
 		$filename	=substr($fullpath, ($slashpos===false?0:$slashpos+1));
-		$filesize	=sprintf("%u", filesize($fullpath));
+		$filesize	=filesize64($fullpath);
 		$filetime	=filectime($fullpath);
 		$filemime	="";
 		# write header information
@@ -453,11 +453,31 @@ class TmsFileManager{
 
 		# start sending file
 		ob_clean();
-		header("Content-Type: {$filemime}");
-		if($filesize>0) header("Content-Length: {$filesize}");
-		header("Last-Modified: " . gmdate("D, d M Y H:i:s",$filetime) . " GMT");
-		header("Content-Disposition: inline; filename=".iconv('gbk', 'utf-8', $filename.""));
+        if (isset($_SERVER['HTTP_RANGE']) && ($_SERVER['HTTP_RANGE'] != "") && preg_match("/^bytes=([0-9]+)-$/i", $_SERVER['HTTP_RANGE'], $match) && ($match[1] < $filesize))
+            $filestart = $match[1];
+        else
+            $filestart = 0;
+		// header("Content-Disposition: inline; filename=".iconv('gbk', 'utf-8', $filename.""));
 		$handle = fopen($fullpath, "rb");
+        
+        @header("Cache-control: public");
+        @header("Pragma: public");
+		if($filesize>0) header("Content-Length: " . ($filesize - $filestart));
+        if ($filestart > 0) {
+            fseek($handle, $filestart);
+            Header("HTTP/1.1 206 Partial Content");
+            Header("Content-Ranges: bytes" . $filestart . "-" . ($filesize - 1) . "/" . $filesize);
+        } else {
+            header("Last-Modified: " . gmdate("D, d M Y H:i:s",$filetime) . " GMT");
+            Header("Accept-Ranges: bytes");
+        }
+        
+		header("Content-Type: {$filemime}");
+        # 解决在IE中下载时中文乱码问题
+        if(preg_match('/MSIE/',$_SERVER['HTTP_USER_AGENT'])) { $filename = str_replace('+','%20',urlencode($filename)); }
+        @header("Content-Disposition: attachment;filename={$filename}"); 
+        
+        //fpassthru($handle);
 		while (!feof($handle)) {
 			echo fread($handle, 8192);
 		}
@@ -473,14 +493,63 @@ class TmsFileManager{
 		if(!is_numeric($filesize)){
 			return $filesize;
 		// } elseif ($filesize>>20) {
-		} elseif (shr32($filesize,20)) {
-			return shr32($filesize,20).'MB';
-		} elseif (shr32($filesize,10)) {
-			return (shr32($filesize,10)).'KB';
-		} else {
-			return $filesize.'B';
+		} elseif ($filesize<=1024) {
+			return $filesize.' B';
+		} elseif (($filesize=$filesize/1024)<=1024) {
+			return sprintf("%.2f",$filesize).'KB';
+		} elseif (($filesize=$filesize/1024)<=10240) {
+			return sprintf("%.2f",$filesize).'MB';
+		} elseif (($filesize=$filesize/1024)<=1024) {
+			return sprintf("%.2f",$filesize).'GB';
 		}
+		// elseif ($filesize/1073741824>10) {
+			// return sprintf("%.2f",$filesize/1073741824).'GB';
+		// } elseif ($filesize/1048576>1) {
+			// return sprintf("%.2f",$filesize/1048576).'MB';
+		// } elseif (shr32($filesize,10)) {
+			// return (shr32($filesize,10)).'KB';
+		// } else {
+			// return $filesize.' B';
+		// }
 	}
+}
+
+/**
+ * 获取文件大小信息
+ * @param string 文件路径
+ * @return number 文件大小
+ */
+function filesize64($file) {
+    static $iswin;
+    if (!isset($iswin))
+        $iswin = (strtoupper(substr(PHP_OS, 0, 3)) == 'WIN');
+
+    static $exec_works;
+    if (!isset($exec_works))
+        $exec_works = (function_exists('exec') && !ini_get('safe_mode') && @exec('echo EXEC') == 'EXEC');
+
+    // try a shell command
+    if ($exec_works) {
+        $cmd = ($iswin) ? "for %F in (\"$file\") do @echo %~zF" : "stat -c%s \"$file\"";
+        @exec($cmd, $output);
+        if (is_array($output) && ctype_digit($size = trim(implode("\n", $output))))
+            return $size;
+    }
+
+    // try the Windows COM interface
+    if ($iswin && class_exists("COM")) {
+        try {
+            $fsobj = new COM('Scripting.FileSystemObject');
+            $f = $fsobj->GetFile( realpath($file) );
+            $size = $f->Size;
+        } catch (Exception $e) {
+            $size = null;
+        }
+        if (ctype_digit($size))
+            return $size;
+    }
+    
+    return sprintf("%u", filesize($file));
 }
 
 /**
@@ -535,4 +604,5 @@ function shl32 ($x, $bits){
     //取出要移动的位数，并在右边填充0
     return bindec(str_pad(substr($bin, $bits), 32, '0', STR_PAD_RIGHT));
 }
+
 ?>
