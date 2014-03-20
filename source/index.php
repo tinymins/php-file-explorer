@@ -5,13 +5,13 @@
  * @version: 2013-07-25 v0.1.3
  * @link: Http://WwW.ZhaiYiMing.CoM
  */
-set_time_limit(0);
+@set_time_limit(0);
 @$response_type = $_REQUEST['rt'];
 @$current_dir_relative = str_replace(array(':','|'),'',$_REQUEST['cd']);
 if(empty($current_dir_relative)) $current_dir_relative = '';
 //(realpath(".")
 $tfm = new TmsFileManager($current_dir_relative);
-
+$ted = new TmsEncoding();
 switch(strtolower($response_type)){
 	case 'json':
 		break;
@@ -42,8 +42,8 @@ switch(strtolower($response_type)){
 </body>
 </html>
 END;
-		$template = str_replace('{title}', htmlspecialchars('TMS FILE EXPLORER - '.iconv('gbk','utf-8',$tfm->current_dir_relative)), $template);
-		$template = str_replace('{headline}', htmlspecialchars('TMS FILE EXPLORER - '.iconv('gbk','utf-8',$tfm->current_dir_relative)), $template);
+		$template = str_replace('{title}', htmlspecialchars('TMS FILE EXPLORER - '.$ted->iconv('utf-8',$tfm->current_dir_relative,"utf-8 gbk")), $template);
+		$template = str_replace('{headline}', htmlspecialchars('TMS FILE EXPLORER - '.$ted->iconv('utf-8',$tfm->current_dir_relative,"utf-8 gbk")), $template);
 		$template = str_replace('{parent_href}', '?cd='.urlencode(substr($tfm->current_dir_relative,0,strrpos(substr($tfm->current_dir_relative,0,-1),'/'))), $template);
 		$body = '';
 		//if(is_dir($tfm->current_dir_fullpath)){
@@ -53,7 +53,7 @@ END;
 				$file['type'],
 				$tfm->format_file_size($file['size']),
 				urlencode($tfm->current_dir_relative.$filename),
-				iconv('gbk','utf-8',$filename)
+				$ted->iconv('utf-8',$filename,"utf-8 gbk")
 			);
 		}
 		foreach($tfm->sub_dir as $file){
@@ -62,7 +62,7 @@ END;
 				$file['type'],
 				$tfm->format_file_size($file['size']),
 				urlencode($tfm->current_dir_relative.$file['name']),
-				iconv('gbk','utf-8',$file['name'])
+				$ted->iconv('utf-8',$file['name'],"utf-8 gbk")
 			);
 		}
 		foreach($tfm->sub_file as $file){
@@ -71,7 +71,7 @@ END;
 				$file['type'],
 				$tfm->format_file_size($file['size']),
 				urlencode($tfm->current_dir_relative.$file['name']),
-				iconv('gbk','utf-8',$file['name'])
+				$ted->iconv('utf-8',$file['name'],"utf-8 gbk")
 			);
 		}
 		//} else {
@@ -91,10 +91,15 @@ class TmsFileManager{
 	var $sub_file = array();
 	
 	function __construct($current_dir_relative,$auto_load = true) {	#构造函数
-		if(substr($current_dir_relative,-1)!='/') $current_dir_relative.='/';
+		while(substr($current_dir_relative,0,1)=='.') $current_dir_relative=substr($current_dir_relative,1);#过滤.开头
+		while(substr($current_dir_relative,-2)=='./') $current_dir_relative=substr($current_dir_relative,0,strlen($current_dir_relative)-2);#过滤./结尾
+		while(substr($current_dir_relative,0,2)=='./') $current_dir_relative=substr($current_dir_relative,2);#过滤./开头
+		while(substr($current_dir_relative,-1)=='/') $current_dir_relative=substr($current_dir_relative,0,strlen($current_dir_relative)-1);#过滤/结尾
+		while(substr($current_dir_relative,0,1)=='/') $current_dir_relative=substr($current_dir_relative,1);#过滤/开头
 		$current_dir_relative = str_replace('\\','/',$current_dir_relative);
 		$current_dir_relative = str_replace('../','',$current_dir_relative);
-		if(substr($current_dir_relative,-1)!='/') $current_dir_relative.='/';
+        $current_dir_relative = "./" . $current_dir_relative;
+        if(!empty($current_dir_relative)&&substr($current_dir_relative,-1)!='/') $current_dir_relative.='/';
 		$this->current_dir_relative = $current_dir_relative;
 		if($auto_load) {
 			$this->current_dir_fullpath = $this->realpath($current_dir_relative);
@@ -199,13 +204,13 @@ class TmsFileManager{
 	 * @return string 实际绝对路径
 	 */
 	function realpath($path_org){
-		if(substr($path_org,1,1)!=':')
+		if(substr($path_org,1,1)!=':'&&substr($path_org,0,1)!='/')
 			$path = realpath('.').'/'; 
 		else {
 			$path =  substr($path_org,0,strpos($path_org,'/')+1);
 			$path_org = substr($path_org,strpos($path_org,'/')+1);
 		}
-		if(substr($path_org,0,1)=='/') $path_org = substr($path_org,1);
+		while(substr($path_org,0,1)=='/') $path_org = substr($path_org,1);
 		
 		while(!empty($path_org)){
 			$next_sub_dir = '';
@@ -457,7 +462,7 @@ class TmsFileManager{
             $filestart = $match[1];
         else
             $filestart = 0;
-		// header("Content-Disposition: inline; filename=".iconv('gbk', 'utf-8', $filename.""));
+		// header("Content-Disposition: inline; filename=".$ted->iconv('utf-8', $filename."","utf-8 gbk"));
 		$handle = fopen($fullpath, "rb");
         
         @header("Cache-control: public");
@@ -604,5 +609,37 @@ function shl32 ($x, $bits){
     //取出要移动的位数，并在右边填充0
     return bindec(str_pad(substr($bin, $bits), 32, '0', STR_PAD_RIGHT));
 }
-
+class TmsEncoding {
+	function iconv( $toEncoding, $string, $from_encoding_list = '' ) { # 判断文本编码类型
+		$toEncoding = strtoupper($toEncoding);
+		$from_encoding_list = explode(' ', trim(strtoupper($from_encoding_list)));
+		$fromEncoding = (empty($from_encoding_list)) ? $this->detectEncoding( $string, $toEncoding ) : $this->detectEncoding( $string, $from_encoding_list );
+		if( $fromEncoding && $fromEncoding!=$toEncoding ) $string = iconv( $fromEncoding, $toEncoding, $string );
+		return $string;
+	}
+	function detectEncoding( $string, $encoding_list = array('GBK', 'GB2312', 'ASCII', 'UTF-8') ) { # 判断文本编码类型(是否为$is_encode)
+		// if($this->is_utf8($string)) return 'UTF-8';
+		// if(preg_match("/[".chr(0xa1)."-".chr(0xff)."]/",$string)) return 'GBK';
+		// if(preg_match("/[x{4e00}-x{9fa5}]/u",$string)) return 'UTF-8';
+		foreach($encoding_list as $c){
+			if( $string === @iconv(($c=='UTF-8')?'GB2312':'UTF-8', $c, iconv($c, ($c=='UTF-8')?'GB2312':'UTF-8', $string))){ return $c; }
+		}
+		return false;
+	}
+	// Returns true if $string is valid UTF-8 and false otherwise.
+	function is_utf8($string) {
+		// From http://w3.org/International/questions/qa-forms-utf-8.html
+		return preg_match('%^(?:
+			  [\x09\x0A\x0D\x20-\x7E]            # ASCII
+			| [\xC2-\xDF][\x80-\xBF]             # non-overlong 2-byte
+			|  \xE0[\xA0-\xBF][\x80-\xBF]        # excluding overlongs
+			| [\xE1-\xEC\xEE\xEF][\x80-\xBF]{2}  # straight 3-byte
+			|  \xED[\x80-\x9F][\x80-\xBF]        # excluding surrogates
+			|  \xF0[\x90-\xBF][\x80-\xBF]{2}     # planes 1-3
+			| [\xF1-\xF3][\x80-\xBF]{3}          # planes 4-15
+			|  \xF4[\x80-\x8F][\x80-\xBF]{2}     # plane 16
+		)*$%xs', $string);
+		
+	} // function is_utf8
+}
 ?>
