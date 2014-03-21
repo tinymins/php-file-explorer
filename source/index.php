@@ -91,15 +91,11 @@ class TmsFileManager{
 	var $sub_file = array();
 	
 	function __construct($current_dir_relative,$auto_load = true) {	#构造函数
-		while(substr($current_dir_relative,0,1)=='.') $current_dir_relative=substr($current_dir_relative,1);#过滤.开头
-		while(substr($current_dir_relative,-2)=='./') $current_dir_relative=substr($current_dir_relative,0,strlen($current_dir_relative)-2);#过滤./结尾
-		while(substr($current_dir_relative,0,2)=='./') $current_dir_relative=substr($current_dir_relative,2);#过滤./开头
-		while(substr($current_dir_relative,-1)=='/') $current_dir_relative=substr($current_dir_relative,0,strlen($current_dir_relative)-1);#过滤/结尾
-		while(substr($current_dir_relative,0,1)=='/') $current_dir_relative=substr($current_dir_relative,1);#过滤/开头
+        $current_dir_relative = trim( $current_dir_relative, " \\/." );
 		$current_dir_relative = str_replace('\\','/',$current_dir_relative);
 		$current_dir_relative = str_replace('../','',$current_dir_relative);
         $current_dir_relative = "./" . $current_dir_relative;
-        if(!empty($current_dir_relative)&&substr($current_dir_relative,-1)!='/') $current_dir_relative.='/';
+        if(substr($current_dir_relative,-1)!='/') $current_dir_relative.='/';
 		$this->current_dir_relative = $current_dir_relative;
 		if($auto_load) {
 			$this->current_dir_fullpath = $this->realpath($current_dir_relative);
@@ -480,7 +476,8 @@ class TmsFileManager{
 		header("Content-Type: {$filemime}");
         # 解决在IE中下载时中文乱码问题
         if(preg_match('/MSIE/',$_SERVER['HTTP_USER_AGENT'])) { $filename = str_replace('+','%20',urlencode($filename)); }
-        @header("Content-Disposition: attachment;filename={$filename}"); 
+        @header("Content-Disposition: inline;filename={$filename}"); 
+        // @header("Content-Disposition: attachment;filename={$filename}"); 
         
         //fpassthru($handle);
 		while (!feof($handle)) {
