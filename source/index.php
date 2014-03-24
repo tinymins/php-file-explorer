@@ -40,7 +40,7 @@ switch(strtolower($response_type)){
 	<hr>
 	<pre><A HREF="{parent_href}">[To Parent Directory]</A><br><br>{body}</pre>
 	<hr>
-	<div style="font-size:12px">Author: 翟一鸣tinymins 2013.07.24 <a style="color:red" href="http://www.zhaiyiming.com">Http://WwW.ZhaiYiMing.CoM/</a></div>
+	<div style="font-size:12px">Author: 翟一鸣tinymins During:2013.07.24 - 2014.03.24 <a style="color:red" href="http://www.zhaiyiming.com">Http://WwW.ZhaiYiMing.CoM/</a></div>
 </body>
 </html>
 END;
