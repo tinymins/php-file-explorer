@@ -5,6 +5,8 @@
  * @version: 2013-07-25 v0.1.3
  * @link: Http://WwW.ZhaiYiMing.CoM
  */
+//报告运行时错误
+@error_reporting(E_ERROR | E_WARNING | E_PARSE);
 @set_time_limit(0);
 @$response_type = $_REQUEST['rt'];
 @$current_dir_relative = str_replace(array(':','|'),'',$_REQUEST['cd']);
@@ -46,7 +48,7 @@ END;
 		$template = str_replace('{headline}', htmlspecialchars('TMS FILE EXPLORER - '.$ted->iconv('utf-8',$tfm->current_dir_relative,"utf-8 gbk")), $template);
 		$template = str_replace('{parent_href}', '?cd='.urlencode(substr($tfm->current_dir_relative,0,strrpos(substr($tfm->current_dir_relative,0,-1),'/'))), $template);
 		$body = '';
-		//if(is_dir($tfm->current_dir_fullpath)){
+		if($tfm->current_dir_exist){
 		foreach($tfm->sub_dir_vitual as $filename=>$file){
 			$body .= sprintf(' %s %10s %10s <A HREF="?cd=%s">%s</A><br>',
 				date('Y/m/d h:i:s',$file['time']),
@@ -74,9 +76,10 @@ END;
 				$ted->iconv('utf-8',$file['name'],"utf-8 gbk")
 			);
 		}
-		//} else {
-		//	$body = '目录不存在！';
-		//}
+		} else {
+            header('HTTP/1.0 404 Not Found');
+			$body = '目录不存在！';
+		}
 		$template = str_replace('{body}', $body, $template);
 		echo $template;
 		break;
@@ -85,6 +88,7 @@ END;
 class TmsFileManager{
 	var $current_dir_relative;
 	var $current_dir_fullpath;
+    var $current_dir_exist = false;
 	var $sub_path_hide = array();
 	var $sub_dir_vitual = array();
 	var $sub_dir = array();
@@ -98,7 +102,10 @@ class TmsFileManager{
         if(substr($current_dir_relative,-1)!='/') $current_dir_relative.='/';
 		$this->current_dir_relative = $current_dir_relative;
 		if($auto_load) {
-			$this->current_dir_fullpath = $this->realpath($current_dir_relative);
+            $tmp_path = $this->realpath($current_dir_relative);
+			if($tmp_path===false) return;
+            $this->current_dir_exist = true;
+            $this->current_dir_fullpath = $tmp_path;
 			if(is_file(substr($this->current_dir_fullpath,0,strrpos($this->current_dir_fullpath,'/')))) {
 				$this->echo_file(substr($this->current_dir_fullpath,0,strrpos($this->current_dir_fullpath,'/')));
 				exit;
@@ -131,7 +138,7 @@ class TmsFileManager{
 						case '':
 						break;
 						case 'sub_path_hide':
-							$this->sub_path_hide []= $s_line;
+							$this->sub_path_hide [$s_line] = true;
 						break;
 						case 'sub_dir_vitual':
 							$filename = substr($s_line,0,strpos($s_line,'|'));
@@ -166,9 +173,7 @@ class TmsFileManager{
 			$file_location=$scan_dir."/".$filename;#生成路径
 			
 			$b_skip_dir = false;
-			foreach($this->sub_path_hide as $k=>$v){
-				if($v==$filename) $b_skip_dir = true;
-			}
+			if($this->sub_path_hide[$filename]) $b_skip_dir = true;
 			if($filename=="." || $filename==".." || $b_skip_dir) {
 				continue;
 			}elseif(is_dir($file_location)) { #判断是不是文件夹
@@ -208,7 +213,7 @@ class TmsFileManager{
 		}
 		while(substr($path_org,0,1)=='/') $path_org = substr($path_org,1);
 		
-		while(!empty($path_org)){
+		while(!empty($path_org)){ # 层层遍历子目录知道$path_org遍历为空
 			$next_sub_dir = '';
 			if(strpos($path_org,'/')) {
 				$next_sub_dir = substr($path_org,0,strpos($path_org,'/'));
@@ -228,9 +233,12 @@ class TmsFileManager{
 					$path = realpath($path.$real_path).'/';
 				}
 				if(substr($path, -1)!='/') $path.='/';
-			}
+			} elseif ($tfm->sub_path_hide[$next_sub_dir]) {
+                return false;
+            }
 			else
 				$path .= $next_sub_dir . '/';
+            if (!file_exists($path)) { return false; }
 		}
 		if(substr($path, -1)!='/') $path.='/';
 		return $path;
