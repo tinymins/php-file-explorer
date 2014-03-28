@@ -55,7 +55,7 @@ switch(strtolower($response_type)){
             'time' => (int)$ted->iconv('utf-8',$file['time'],"utf-8 gbk"),
             'url' => urlencode($tfm->current_dir_relative.$file['name']),
         ); }
-        echo(json_encode($response,true));
+        echo(json_encode($response));
 		break;
 	case 'xml':
 		break;

@@ -56,7 +56,7 @@ function createView(tCd, tPd, tFiles){
 }
 function bindAction(){
 	$('.url-root').add('.url-sub').unbind("hover").hover(function(){ $(this).addClass('url-hover'); },function(){ $(this).removeClass('url-hover'); });
-	$('.file-box').unbind("hover").hover(function(){ $(this).addClass('file-box-hover'); },function(){ $(this).removeClass('file-box-hover'); });
+	$('.file-box-container').unbind("hover").hover(function(){ $(this).addClass('file-box-hover'); },function(){ $(this).removeClass('file-box-hover'); });
 	$('[data-url]').unbind("click").click(function(){ if($(this).data('url')!=null) { if($(this).data('type')=='sub_file') window.location=window.szCorePhp+'?cd='+$(this).data('url'); else reloadList($(this).data('url')); }});
 }
 // 对Date的扩展，将 Date 转化为指定格式的String   
