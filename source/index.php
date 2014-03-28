@@ -12,10 +12,35 @@
 @$current_dir_relative = str_replace(array(':','|'),'',$_REQUEST['cd']);
 if(empty($current_dir_relative)) $current_dir_relative = '';
 //(realpath(".")
-$tfm = new TmsFileManager($current_dir_relative);
 $ted = new TmsEncoding();
+$tfm = new TmsFileManager($current_dir_relative);
 switch(strtolower($response_type)){
 	case 'json':
+        $response = array(
+            'cd' => $tfm->current_dir_exist?$ted->iconv('utf-8',$tfm->current_dir_relative,"utf-8 gbk"):null,
+            'sub_dir_vitual' => array(),
+            'sub_dir' => array(),
+            'sub_file' => array()
+        );
+        foreach( $tfm->sub_dir_vitual as $filename=>$file ) { $response['sub_dir_vitual'] []= array(
+            'name' => $ted->iconv('utf-8',$filename,"utf-8 gbk"),
+            'size' => (int)$ted->iconv('utf-8',$file['size'],"utf-8 gbk"),
+            'time' => (int)$ted->iconv('utf-8',$file['time'],"utf-8 gbk"),
+            'url' => urlencode($tfm->current_dir_relative.$filename),
+        ); }
+        foreach( $tfm->sub_dir as $file ) { $response['sub_dir'] []= array(
+            'name' => $ted->iconv('utf-8',$file['name'],"utf-8 gbk"),
+            'size' => (int)$ted->iconv('utf-8',$file['size'],"utf-8 gbk"),
+            'time' => (int)$ted->iconv('utf-8',$file['time'],"utf-8 gbk"),
+            'url' => urlencode($tfm->current_dir_relative.$file['name']),
+        ); }
+        foreach( $tfm->sub_file as $file ) { $response['sub_file'] []= array(
+            'name' => $ted->iconv('utf-8',$file['name'],"utf-8 gbk"),
+            'size' => (int)$ted->iconv('utf-8',$file['size'],"utf-8 gbk"),
+            'time' => (int)$ted->iconv('utf-8',$file['time'],"utf-8 gbk"),
+            'url' => urlencode($tfm->current_dir_relative.$file['name']),
+        ); }
+        echo(json_encode($response,true));
 		break;
 	case 'xml':
 		break;
@@ -23,7 +48,7 @@ switch(strtolower($response_type)){
 		header('Content-Type: text/plain; charset=utf-8');
 		echo "\n------\ncurrent_dir\n";echo $tfm->current_dir_relative."\n".$tfm->current_dir_fullpath;
 		echo "\n------\npath_hide\n";print_r($tfm->sub_path_hide);
-		echo "\n------\ndir_vitual\n";print_r($tfm->sub_dir_vitual);
+		echo "\n------\nsub_dir_vitual\n";print_r($tfm->sub_dir_vitual);
 		echo "\n------\nsub_dir\n";print_r($tfm->sub_dir);
 		echo "\n------\nsub_file\n";print_r($tfm->sub_file);
 		break;
@@ -91,28 +116,33 @@ class TmsFileManager{
     var $current_dir_exist = false;
 	var $sub_path_hide = array();
 	var $sub_dir_vitual = array();
+	var $sub_file_vitual = array();
 	var $sub_dir = array();
 	var $sub_file = array();
 	
-	function __construct($current_dir_relative,$auto_load = true) {	#构造函数
-        $current_dir_relative = trim( $current_dir_relative, " \\/." );
-		$current_dir_relative = str_replace('\\','/',$current_dir_relative);
-		$current_dir_relative = str_replace('../','',$current_dir_relative);
-        $current_dir_relative = "./" . $current_dir_relative;
-        if(substr($current_dir_relative,-1)!='/') $current_dir_relative.='/';
-		$this->current_dir_relative = $current_dir_relative;
-		if($auto_load) {
-            $tmp_path = $this->realpath($current_dir_relative);
-			if($tmp_path===false) return;
-            $this->current_dir_exist = true;
-            $this->current_dir_fullpath = $tmp_path;
-			if(is_file(substr($this->current_dir_fullpath,0,strrpos($this->current_dir_fullpath,'/')))) {
-				$this->echo_file(substr($this->current_dir_fullpath,0,strrpos($this->current_dir_fullpath,'/')));
-				exit;
-			}
-			$this->load_config_file($this->current_dir_fullpath.'.conf');
-			$this->scan_dir($this->current_dir_fullpath);
-		}
+	function __construct($cd) { #构造函数
+        # 格式化输入替换\\为/
+		$cd = str_replace('\\','/',$cd);
+        do { # 去掉目录里的 /xxx/../ccc 为 /ccc
+            $cd = preg_replace('/\/[^\/]*\/\.\.\//','/',$cd,-1,$count);
+        } while($count>0);
+        # 格式化$cd 去掉/.k空格../等字符（过滤掉绝对目录访问和越界的上级目录访问）
+		$cd = "./" . str_replace( '../', '', trim( $cd," /.") );
+		$this->current_dir_relative = $cd;
+        $real_path = $this->realpath($cd);
+        if($real_path===false) return;
+        $this->current_dir_exist = true;
+        $this->current_dir_fullpath = $real_path;
+        if( is_file($real_path) ) { $this->echo_file($real_path); exit(); }
+        if( $config = $this->load_config_file($this->current_dir_fullpath.'.conf') ) {
+            $this->sub_path_hide = $config['sub_path_hide'];
+            $this->sub_dir_vitual = $config['sub_dir_vitual'];
+            $this->sub_file_vitual = $config['sub_file_vitual'];
+        };
+        if( $sub = $this->scan_dir($this->current_dir_fullpath) ) {
+            $this->sub_dir = $sub['sub_dir'];
+            $this->sub_file = $sub['sub_file'];
+        }
 	}
 	/**
 	 * 加载目录配置文件
@@ -121,13 +151,18 @@ class TmsFileManager{
 	 */
 	function load_config_file($config_file_path){
 		@$file = fopen($config_file_path,'r');
+        $ret = array(
+            'sub_file_vitual' => array(),
+            'sub_dir_vitual' => array(),
+            'sub_path_hide' => array()
+        );
 		if($file){
 			$config_var_name = '';
 			while(! feof($file)){
 				$s_line = trim(fgets($file));
 				switch(strtolower($s_line)){
-				case '[vitualdir]':
-					$config_var_name = 'sub_dir_vitual';
+				case '[vitual]':
+					$config_var_name = 'sub_path_vitual';
 					break;
 				case '[hide]':
 					$config_var_name = 'sub_path_hide';
@@ -138,36 +173,46 @@ class TmsFileManager{
 						case '':
 						break;
 						case 'sub_path_hide':
-							$this->sub_path_hide [$s_line] = true;
+							$ret['sub_path_hide'][$s_line] = true;
 						break;
-						case 'sub_dir_vitual':
+						case 'sub_path_vitual':
 							$filename = substr($s_line,0,strpos($s_line,'|'));
 							$file_location = substr($s_line,strpos($s_line,'|')+1);
-							if(!is_dir($file_location)) break;
-							$this->sub_dir_vitual [$filename]= array(
-								'path'=>$file_location,
-								'size'=>'NULL',
-								'time'=>filemtime($file_location),
-								'type'=>'vitual dir',
-							);
+                            // if(substr($config_file_path,1,1)!=':' && substr($config_file_path,0,1)!='/') = dirname($config_file_path).'/'.$file_location;
+							if(is_dir($file_location)) {
+                                $ret['sub_path_vitual'][$filename] = $ret['sub_dir_vitual'][$filename] = array(
+                                    'path'=>$file_location,
+                                    'size'=>'NULL',
+                                    'time'=>filemtime($file_location),
+                                    'type'=>'vitual dir',
+                                );
+                            } elseif( is_file($file_location) ) {
+                                $ret['sub_path_vitual'][$filename] = $ret['sub_file_vitual'][$filename] = array(
+                                    'path'=>$file_location,
+                                    'size'=>filesize64($file_location),
+                                    'time'=>filemtime($file_location),
+                                    'type'=>'vitual dir',
+                                );
+                            }
 						break;
 					}
 					break;
 				}
 			}
 			fclose($file);
-			return true;
+			return $ret;
 		}
 		return false;
 	}
 	/**
 	 * 扫描目录 变量文件文件夹
 	 * @param string $scan_dir 扫描的目录
-	 * @return bool 扫描成功与否
+	 * @return bool/array 扫描成功与否 成功返回列表
 	 */
 	function scan_dir($scan_dir){
 		$scan_dir = $this->realpath($scan_dir);
 		if(!is_dir($scan_dir)) return false;
+        $ret = array( 'sub_dir'=>array(), 'sub_file'=>array());
 		$filelist = scandir($scan_dir); # 得到该文件下的所有文件和文件夹
 		foreach($filelist as $filename){#遍历
 			$file_location=$scan_dir."/".$filename;#生成路径
@@ -177,14 +222,14 @@ class TmsFileManager{
 			if($filename=="." || $filename==".." || $b_skip_dir) {
 				continue;
 			}elseif(is_dir($file_location)) { #判断是不是文件夹
-				$this->sub_dir []= array(
+				$ret['sub_dir'] []= array(
 					'name'=>$filename,
 					'size'=>'NULL',
 					'time'=>filemtime($file_location),
 					'type'=>filetype($file_location),
 				);
 			} elseif(is_file($file_location)) { #判断是不是文件
-				$this->sub_file []= array(
+				$ret['sub_file'] []= array(
 					'name'=>$filename,
 					'size'=>filesize64($file_location),
 					'time'=>filemtime($file_location),
@@ -193,27 +238,60 @@ class TmsFileManager{
 			}
 		}
 		#uasort($this->sub_dir, 'strcasecmp');
-		$this->sub_dir = array_merge($this->sub_dir);
+		$ret['sub_dir'] = array_merge($ret['sub_dir']);
 		#uasort($this->sub_file, 'strcasecmp');
-		$this->sub_file = array_merge($this->sub_file);
-		return true;
+		$ret['sub_file'] = array_merge($ret['sub_file']);
+		return $ret;
 	}
 	
 	/**
 	 * (通过虚拟路径)计算绝对路径
-	 * @param string $path_org (可能是)虚拟路径
+	 * @param string $path_org 需要计算的(可能是)虚拟路径
+	 * @param string $path_prefix 不需计算的(已计算好的)路径prefix
 	 * @return string 实际绝对路径
 	 */
-	function realpath($path_org){
-		if(substr($path_org,1,1)!=':'&&substr($path_org,0,1)!='/')
-			$path = realpath('.').'/'; 
-		else {
-			$path =  substr($path_org,0,strpos($path_org,'/')+1);
-			$path_org = substr($path_org,strpos($path_org,'/')+1);
-		}
-		while(substr($path_org,0,1)=='/') $path_org = substr($path_org,1);
+	function realpath($path_org, $path_prefix='./'){
+        do { # 去掉目录里的 /xxx/../ccc 为 /ccc
+            $path_org = preg_replace('/\/[^\/]*\/\.\.\//','/',$path_org,-1,$count);
+        } while($count>0);
+        # 检测$path_org是否为绝对目录 如果是则直接返回
+		if(substr($path_org,1,1)==':' || substr($path_org,0,1)=='/') return file_exists($path_org)?$path_org:false;
+        # 处理$path_org 替换\\为/ 去除两端/ 转为待处理数组
+        foreach( explode('/',trim(str_replace('\\','/',$path_org),'/')) as $path_each ) {
+            # 去掉右侧的\/ 替换所有/./为/ 格式化$path_org为/结束
+            $path_prefix = str_replace( '/./', '/', rtrim($path_prefix,'\\/').'/' );
+            # 检测配置文件
+            if( $config = $this->load_config_file($path_prefix.'/.conf') ) {//print_r($config);
+                # 发现目录配置文件
+                if( $real_path = str_replace('\\','/',$config['sub_path_vitual'][$path_each]) ) {
+                    $real_path = $real_path['path'];
+                    # 匹配到虚拟目录
+                    if( substr($real_path, 1,1)==':' || substr($real_path,0,1)=='/' ) {
+                        # 虚拟目录指向绝对位置
+                        $path_prefix = $real_path;
+                    }else {
+                        # 虚拟目录指向相对位置
+                        $path_prefix = realpath($path_prefix.$real_path);
+                    }
+                } elseif ($config['sub_path_hide'][$path_each]) {
+                    # 匹配到禁访目录
+                    return false;
+                } else {
+                    # 普通目录
+                    $path_prefix .= $path_each;
+                }
+            } else {
+                # 普通目录
+                $path_prefix .= $path_each;
+            }
+            // echo $path_prefix.','.$path_each.''.'|';print_r(explode('/',$path_org));
+            if(!file_exists($path_prefix)) {echo 'ciao';return false;}
+        }
+        // $path_prefix = './'.str_replace('./','',$path_prefix);
+        if(is_dir($path_prefix)) $path_prefix .= '/';
+        return $path_prefix;
 		
-		while(!empty($path_org)){ # 层层遍历子目录知道$path_org遍历为空
+		while(!empty($path_org)){ # 层层遍历子目录直到$path_org遍历为空
 			$next_sub_dir = '';
 			if(strpos($path_org,'/')) {
 				$next_sub_dir = substr($path_org,0,strpos($path_org,'/'));
@@ -229,7 +307,7 @@ class TmsFileManager{
 				if(substr($real_path, 1,1)==':') {
 					$path = $real_path;
 				}else {
-					if(substr($real_path,0,1)=='/') $real_path = substr($real_path, 1);
+					$real_path = ltrim($real_path, "\\/");
 					$path = realpath($path.$real_path).'/';
 				}
 				if(substr($path, -1)!='/') $path.='/';
