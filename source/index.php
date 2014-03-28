@@ -6,12 +6,14 @@
  * @link: Http://WwW.ZhaiYiMing.CoM
  */
 //报告运行时错误
-@error_reporting(E_ERROR | E_WARNING | E_PARSE);
+// @error_reporting(E_ERROR | E_WARNING | E_PARSE);
+@error_reporting(E_ERROR | E_PARSE);
 @set_time_limit(0);
+if(!array_key_exists('cd',$_REQUEST)) { echo_ui(); die(); }
 @$response_type = $_REQUEST['rt'];
 @$current_dir_relative = str_replace(array(':','|'),'',$_REQUEST['cd']);
 if(empty($current_dir_relative)) $current_dir_relative = '';
-//(realpath(".")
+
 $ted = new TmsEncoding();
 $tfm = new TmsFileManager($current_dir_relative);
 switch(strtolower($response_type)){
@@ -737,5 +739,8 @@ class TmsEncoding {
 		)*$%xs', $string);
 		
 	} // function is_utf8
+}
+function echo_ui() {
+    file_put_contents('index.html');
 }
 ?>

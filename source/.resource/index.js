@@ -1,13 +1,14 @@
 window.szCorePhp = 'index.php';
 $(window).resize(function(){
-	$('.file-container').css( 'height', ( $('body').height() - 160 ) + "px" );
+	$('.file-container').css( 'height', ( document.body.clientHeight - 160 ) + "px" );
 	$('.url-sub-container-outer').width(10000);$('.url-sub-container-outer').width($('.url-sub-container-inner').width());
 	$('.url-sub-container-outer').css( 'float', $('.url-sub-container').width() >= $('.url-sub-container-outer').width() ? 'left' : 'right' );
+	$('.info_container').width($('body').width()-110);
 }).load(function(){
 	reloadList(window.location.hash.replace(/#/g,''));
 }).resize();
 function reloadList(szUrl){
-	$('.loading-img').add('.loading-cover').show();
+	$('.loading-cover').fadeTo(100,.7);
 	$.ajax({
 		type: "GET",
 		url: "index.php?rt=json&cd="+szUrl+'&_='+(new Date()).getTime(),
@@ -23,18 +24,12 @@ function reloadList(szUrl){
 			for(var i = 0, l = data['sub_file'].length; i < l; i++){ data['sub_file'][i].type='sub_file';tFiles.push(data['sub_file'][i]); }
 			// 处理视图
 			createView(data['cd'], data['pd'], tFiles);
-			$('.loading-img').add('.loading-cover').hide();
-			// 绑定跳转按钮事件
-			$('[data-url]').unbind().click(function(){ if($(this).data('url')!=null) {
-				if($(this).data('type')=='sub_file') window.location=window.szCorePhp+'?cd='+$(this).data('url'); else reloadList($(this).data('url')); 
-			}});
+			$('.loading-cover').fadeOut(300);
+			bindAction(); // 绑定事件
 		},
 		error: function (msg) {
-			$('.loading-img').add('.loading-cover').hide();
-			// 绑定跳转按钮事件
-			$('[data-url]').unbind().click(function(){ if($(this).data('url')!=null) {
-				if($(this).data('type')=='sub_file') window.location=window.szCorePhp+'?cd='+$(this).data('url'); else reloadList($(this).data('url')); 
-			}});
+			$('.loading-cover').fadeOut(300);
+			bindAction(); // 绑定事件
 			console.log(msg);
 		}
 	});
@@ -58,6 +53,11 @@ function createView(tCd, tPd, tFiles){
 	$('.file-container').html(szHtml);
 	
 	$(window).resize();
+}
+function bindAction(){
+	$('.url-root').add('.url-sub').unbind("hover").hover(function(){ $(this).addClass('url-hover'); },function(){ $(this).removeClass('url-hover'); });
+	$('.file-box').unbind("hover").hover(function(){ $(this).addClass('file-box-hover'); },function(){ $(this).removeClass('file-box-hover'); });
+	$('[data-url]').unbind("click").click(function(){ if($(this).data('url')!=null) { if($(this).data('type')=='sub_file') window.location=window.szCorePhp+'?cd='+$(this).data('url'); else reloadList($(this).data('url')); }});
 }
 // 对Date的扩展，将 Date 转化为指定格式的String   
 // 月(M)、日(d)、小时(h)、分(m)、秒(s)、季度(q) 可以用 1-2 个占位符，   
