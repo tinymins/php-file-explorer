@@ -17,11 +17,24 @@ $tfm = new TmsFileManager($current_dir_relative);
 switch(strtolower($response_type)){
 	case 'json':
         $response = array(
-            'cd' => $tfm->current_dir_exist?$ted->iconv('utf-8',$tfm->current_dir_relative,"utf-8 gbk"):null,
+            'cd' => array(
+                'name' => $tfm->current_dir_exist?$ted->iconv('utf-8',$tfm->current_dir_relative,"utf-8 gbk"):null,
+                'url' => $tfm->current_dir_exist?urlencode($tfm->current_dir_relative):null,
+            ),
+            'pd' => array(),
             'sub_dir_vitual' => array(),
             'sub_dir' => array(),
             'sub_file' => array()
         );
+        $dir_name_prefix = './';
+        foreach( explode('/',trim($tfm->current_dir_relative,'.\\/')) as $dir_name ) {
+            if(empty($dir_name)) continue;
+            $response['pd'] []= array(
+                'name' => $ted->iconv('utf-8',$dir_name,"utf-8 gbk"),
+                'url' => urlencode($dir_name_prefix.$dir_name.'/'),
+            );
+            $dir_name_prefix .= $dir_name.'/';
+        }
         foreach( $tfm->sub_dir_vitual as $filename=>$file ) { $response['sub_dir_vitual'] []= array(
             'name' => $ted->iconv('utf-8',$filename,"utf-8 gbk"),
             'size' => (int)$ted->iconv('utf-8',$file['size'],"utf-8 gbk"),
@@ -126,14 +139,14 @@ class TmsFileManager{
         do { # 去掉目录里的 /xxx/../ccc 为 /ccc
             $cd = preg_replace('/\/[^\/]*\/\.\.\//','/',$cd,-1,$count);
         } while($count>0);
-        # 格式化$cd 去掉/.k空格../等字符（过滤掉绝对目录访问和越界的上级目录访问）
-		$cd = "./" . str_replace( '../', '', trim( $cd," /.") );
-		$this->current_dir_relative = $cd;
+        # 格式化$cd 去掉/.k空格../ ./等字符（过滤掉绝对目录访问和越界的上级目录访问）
+		$cd = "./" . str_replace( './', '', str_replace( '../', '', trim( $cd," /.") ) );
         $real_path = $this->realpath($cd);
+        if( is_file($real_path) ) { $this->echo_file($real_path); exit(); } else { $cd = rtrim($cd,'/').'/'; }
         if($real_path===false) return;
         $this->current_dir_exist = true;
+		$this->current_dir_relative = $cd;
         $this->current_dir_fullpath = $real_path;
-        if( is_file($real_path) ) { $this->echo_file($real_path); exit(); }
         if( $config = $this->load_config_file($this->current_dir_fullpath.'.conf') ) {
             $this->sub_path_hide = $config['sub_path_hide'];
             $this->sub_dir_vitual = $config['sub_dir_vitual'];
