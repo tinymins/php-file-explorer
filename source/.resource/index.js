@@ -3,9 +3,14 @@ $(window).resize(function(){
 	$('.file-container').css( 'height', ( document.body.clientHeight - 160 ) + "px" );
 	$('.url-sub-container-outer').width(10000);$('.url-sub-container-outer').width($('.url-sub-container-inner').width());
 	$('.url-sub-container-outer').css( 'float', $('.url-sub-container').width() >= $('.url-sub-container-outer').width() ? 'left' : 'right' );
-	$('.info_container').width($('body').width()-110);
 }).load(function(){
-	reloadList(window.location.hash.replace(/#/g,''));
+	var url = window.location.href;
+	if(url.indexOf('?')>=0) url = url.substr(url.indexOf('?')+1); else url = '';
+	if(url.indexOf('#')>=0) url = url.substr(0, url.indexOf('#'));
+	if(url.indexOf('cd=')>=0) url = url.substr(url.indexOf('cd=')+3);
+	if(url.indexOf('&')>=0) url = url.substr(0, url.indexOf('&'));
+	if(url) window.location = "index.html#"+url;
+	else reloadList(window.location.hash.replace(/#/g,''));
 }).resize();
 function reloadList(szUrl){
 	$('.loading-cover').fadeTo(100,.7);
@@ -37,7 +42,13 @@ function reloadList(szUrl){
 function createView(tCd, tPd, tFiles){
 	var szHtml = "";
 	// 处理浏览器历史
-	window.location="#"+tCd.url; window.history.pushState && window.history.pushState();
+	var state = {
+		title: document.title,
+		url: window.location.href,
+		otherkey: ''
+	};
+	window.history.pushState && window.history.pushState(state, document.title, window.location.href);
+	window.location="#"+tCd.url;
 	document.title = 'TMS FILE EXPLORER - '+tCd.name;
 	// 重建地址栏
 	for(var i = 0, l = tPd.length; i < l; i++){ if(tPd[i].name && tPd[i].url) szHtml += '<div class="url-sub" data-url="'+tPd[i].url+'">'+tPd[i].name+'</div><div class="url-sub-spliter"></div>'; }
